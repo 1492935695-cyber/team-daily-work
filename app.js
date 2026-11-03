@@ -4,7 +4,7 @@ const STATUSES=['未安排','待开始','进行中','已完成','阻塞'];
 const PROJECTS=[{id:'1A',code:'1A',name:'抖店童装',priority:1,label:'首要重点'},{id:'1B',code:'1B',name:'抖店女鞋',priority:2,label:'第二重点'},{id:'2C-douyin',code:'2C',name:'抖音达人',priority:3,label:'第三重点',primary:true},{id:'2C-weixin',code:'2C',name:'视频号达人',priority:3,label:'第三重点'},{id:'2C-xhs',code:'2C',name:'小红书达人',priority:3,label:'第三重点'},{id:'2A',code:'2A',name:'小红书童装',priority:4,label:'第四重点'}];
 const localStore={get(k){try{return localStorage.getItem(k);}catch{return null;}},set(k,v){try{localStorage.setItem(k,v);}catch{}},remove(k){try{localStorage.removeItem(k);}catch{}}};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const state={date:today(),person:localStore.get('team-person')||'',key:localStore.get('team-key')||'',view:'all',filter:'all',payload:null,online:false,loading:false,endpoint:location.hostname.endsWith('github.io')?'':location.origin,endpointAt:0,editing:null,busy:false,conflict:null,reportAll:true};
+const state={date:today(),person:localStore.get('team-person')||'',view:'all',filter:'all',payload:null,online:false,loading:false,endpoint:location.hostname.endsWith('github.io')?'':location.origin,endpointAt:0,editing:null,busy:false,conflict:null,reportAll:true};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const project=id=>PROJECTS.find(p=>p.id===id)||PROJECTS[0];
 const active=t=>t.status!=='未安排';
@@ -22,32 +22,32 @@ async function discover(force=false){
   const raw='https://raw.githubusercontent.com/1492935695-cyber/team-daily-work/main/endpoint.json?t='+Date.now();
   for(const source of force?[raw,local]:[local,raw]){try{
     const r=await fetch(source,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)continue;const d=await r.json();
-    if(!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(d.endpoint||''))continue;
+    if(!/^https:\/\/[a-z0-9-]+\.(?:trycloudflare\.com|[a-z0-9-]+\.workers\.dev)$/.test(d.endpoint||''))continue;
     state.endpoint=d.endpoint;state.endpointAt=Date.now();return;
   }catch{}}
   throw new Error('同步服务地址尚未就绪');
 }
 async function api(route,{method='GET',body}={}){
   await discover();
-  const send=()=>fetch(state.endpoint+route,{method,headers:{Authorization:'Bearer '+state.key,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store',signal:AbortSignal.timeout(12000)});
+  const send=()=>fetch(state.endpoint+route,{method,headers:{...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store',signal:AbortSignal.timeout(12000)});
   let r;try{r=await send();}catch(e){if(!location.hostname.endsWith('github.io'))throw e;await discover(true);r=await send();}
   if(r.status>=502&&location.hostname.endsWith('github.io')){await discover(true);r=await send();}
   let data;try{data=await r.json();}catch{throw new Error('同步服务暂时没有响应');}
   if(!r.ok){const e=new Error(data.error||'请求失败');e.status=r.status;e.current=data.current;throw e;}return data;
 }
 async function refresh({notify=false}={}){
-  if(state.loading||!state.key)return;state.loading=true;const date=state.date;
+  if(state.loading)return;state.loading=true;const date=state.date;
   try{
     const payload=await api('/api/day?date='+encodeURIComponent(date));
     if(date!==state.date)return;
     state.payload=payload;setSync(true,'已同步 '+time(payload.serverTime));$('connection-note').classList.add('hidden');
     localStore.set('team-last-'+date,JSON.stringify(payload));render();
-    if($('access-dialog').open)closeDialog('access-dialog');if(!state.person&&!state.personPrompted){state.personPrompted=true;showDialog('person-dialog');}if(notify)toast('已刷新共用进度');
+    if(!state.person&&!state.personPrompted){state.personPrompted=true;showDialog('person-dialog');}if(notify)toast('已刷新共用进度');
   }catch(e){
     if(date!==state.date)return;setSync(false,'未连接');
-    if(e.status===401){$('access-error').textContent=e.message;showDialog('access-dialog');}
+    if(e.status===401){$('connection-note').textContent='工作台连接设置已更新，请刷新页面后重试。';$('connection-note').classList.remove('hidden');}
     else{
-      $('connection-note').textContent='共用服务暂未连接。请确认提供服务的电脑开机联网；正在自动重试。未提交草稿会保留，页面不会显示为已保存。';$('connection-note').classList.remove('hidden');
+      $('connection-note').textContent='云端同步暂未连接，请检查当前网络；正在自动重试。未提交草稿会保留，页面不会显示为已保存。';$('connection-note').classList.remove('hidden');
       if(!state.payload){try{state.payload=JSON.parse(localStore.get('team-last-'+date));}catch{}if(state.payload)render();else $('tasks').innerHTML='<div class="empty"><b>正在等待同步服务</b><p>服务连接后会显示你们共同的任务和进度。</p><button class="primary" data-retry>重新连接</button></div>';}
     }
   }finally{state.loading=false;}
@@ -58,6 +58,7 @@ function render(){
   $('identity').textContent=state.person?state.person+' ▾':'选择姓名';$('greeting').textContent=state.person?state.person+'，一起推进。':'今天，一起推进。';
   $('date').value=state.date;$('weekday').textContent=new Date(state.date+'T12:00:00+08:00').toLocaleDateString('zh-CN',{weekday:'long'});
   if(!state.payload)return;
+  $('hosting-note').textContent=state.payload.hosting==='cloud'?'云端自动同步约 5 秒 · 无需电脑开机':'自动同步约 5 秒 · 数据服务电脑需开机联网';
   const daily=state.payload.tasks.filter(t=>t.kind!=='setup');const total=count(daily),percent=total.planned?Math.round(total.done/total.planned*100):0;
   $('done').innerHTML=total.done+' <em>/ '+total.planned+'</em>';$('percent').textContent=percent+'%';$('progress').value=percent;
   $('team').innerHTML=MEMBERS.map(n=>{const ts=daily.filter(t=>t.owner===n),c=count(ts);return `<button class="member ${n===state.person?'active':''}" data-member="${esc(n)}" aria-label="查看${esc(n)}的任务"><span class="avatar">${esc(n.slice(0,1))}</span><span><span class="member-name">${esc(n)}</span><span class="member-data">${c.done}/${c.planned} 已完成</span></span></button>`;}).join('');
@@ -158,7 +159,7 @@ document.addEventListener('click',event=>{
 $('identity').onclick=()=>showDialog('person-dialog');$('add').onclick=()=>openTask();$('task-form').onsubmit=saveTask;$('assign').onclick=openAssign;$('assign-form').onsubmit=saveAssign;
 $('task-form').addEventListener('input',()=>{if($('task-dialog').open){localStore.set(draftKey(state.editing),JSON.stringify(readForm()));$('draft-hint').textContent='本机草稿已保留，等待提交';}});
 $('date').onchange=e=>changeDate(e.target.value);$('previous').onclick=()=>moveDay(-1);$('next').onclick=()=>moveDay(1);$('today').onclick=()=>changeDate(today());$('refresh').onclick=()=>refresh({notify:true});
-$('access-form').onsubmit=async event=>{event.preventDefault();state.key=$('access-code').value.trim();localStore.set('team-key',state.key);$('access-error').textContent='连接中…';await refresh();if(state.online)$('access-error').textContent='';};
-const hash=new URLSearchParams(location.hash.slice(1));if(hash.get('join')){state.key=hash.get('join');localStore.set('team-key',state.key);history.replaceState(null,'',location.pathname+location.search);}
-render();if(!state.key)showDialog('access-dialog');else refresh();
+localStore.remove('team-key');
+const entryUrl=new URL(location.href);if(entryUrl.hash.startsWith('#join='))entryUrl.hash='';entryUrl.searchParams.delete('join');entryUrl.searchParams.delete('team');history.replaceState(null,'',entryUrl.pathname+entryUrl.search+entryUrl.hash);
+render();refresh();
 setInterval(()=>{if(!document.hidden&&!state.busy)refresh();},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});window.addEventListener('online',()=>refresh());window.addEventListener('offline',()=>setSync(false,'离线 · 草稿保留'));
