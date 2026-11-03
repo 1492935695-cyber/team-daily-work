@@ -18,15 +18,20 @@ function count(tasks){const planned=tasks.filter(active);return {planned:planned
 async function discover(force=false){
   if(!location.hostname.endsWith('github.io'))return;
   if(!force&&state.endpoint&&Date.now()-state.endpointAt<60000)return;
-  const r=await fetch(new URL('endpoint.json?t='+Date.now(),location.href),{cache:'no-store',signal:AbortSignal.timeout(8000)});
-  if(!r.ok)throw new Error('同步服务尚未启动');const d=await r.json();
-  if(!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(d.endpoint||''))throw new Error('同步服务地址尚未就绪');
-  state.endpoint=d.endpoint;state.endpointAt=Date.now();
+  const local=new URL('endpoint.json?t='+Date.now(),location.href).href;
+  const raw='https://raw.githubusercontent.com/1492935695-cyber/team-daily-work/main/endpoint.json?t='+Date.now();
+  for(const source of force?[raw,local]:[local,raw]){try{
+    const r=await fetch(source,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)continue;const d=await r.json();
+    if(!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(d.endpoint||''))continue;
+    state.endpoint=d.endpoint;state.endpointAt=Date.now();return;
+  }catch{}}
+  throw new Error('同步服务地址尚未就绪');
 }
 async function api(route,{method='GET',body}={}){
   await discover();
   const send=()=>fetch(state.endpoint+route,{method,headers:{Authorization:'Bearer '+state.key,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store',signal:AbortSignal.timeout(12000)});
   let r;try{r=await send();}catch(e){if(!location.hostname.endsWith('github.io'))throw e;await discover(true);r=await send();}
+  if(r.status>=502&&location.hostname.endsWith('github.io')){await discover(true);r=await send();}
   let data;try{data=await r.json();}catch{throw new Error('同步服务暂时没有响应');}
   if(!r.ok){const e=new Error(data.error||'请求失败');e.status=r.status;e.current=data.current;throw e;}return data;
 }
