@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#172b36"><meta name="referrer" content="no-referrer">
+  <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="每日协作">
+  <title>每日协作 · 工作进度</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css"><script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar"><a class="brand" href="./" aria-label="每日协作首页"><span class="brand-mark">日</span><span>每日协作<small>把进度写在一起</small></span></a><button id="identity" class="identity">选择姓名</button></header>
+  <main>
+    <div class="daybar"><div><p class="eyebrow">TEAM WORKSPACE</p><h1 id="greeting">今天，一起推进。</h1></div><span id="sync" class="sync connecting" role="status">连接中</span></div>
+    <div class="datebar"><button id="previous" aria-label="前一天" class="icon-btn">‹</button><label class="date-label"><input type="date" id="date" aria-label="工作日期"><span id="weekday"></span></label><button id="next" aria-label="后一天" class="icon-btn">›</button><button id="today" class="text-btn">今天</button><button id="refresh" class="refresh" aria-label="刷新">↻</button></div>
+    <div id="connection-note" class="notice hidden" role="status"></div>
+    <section id="summary" class="summary" aria-label="当日汇总"><div><span>已完成 / 已安排</span><strong id="done">—</strong></div><div class="completion"><b id="percent">—</b><span>今日完成率</span></div><progress id="progress" value="0" max="100" aria-label="今日完成率"></progress><p>未安排的事项不计入完成率</p></section>
+    <section class="team-strip" id="team" aria-label="成员进度"></section>
+    <div class="content-heading"><div><h2 id="section-title">全部任务</h2><p id="section-hint">按重点顺序推进，点事项填写进度</p></div><div class="heading-actions"><button id="assign" class="identity">分工</button><button id="add" class="primary small">＋ 新增</button></div></div>
+    <div id="filters" class="filters"><button data-filter="all" class="selected">全部</button><button data-filter="unfinished">未完成</button><button data-filter="unassigned">待分配</button></div>
+    <div id="tasks" class="task-groups"><div class="empty">正在连接共用进度…</div></div>
+    <section id="report" class="hidden"></section>
+    <p class="footnote">自动同步约 5 秒 · 数据服务电脑需开机联网</p>
+  </main>
+  <nav class="bottom-nav" aria-label="主要功能"><button data-view="mine"><span>◎</span>我的任务</button><button data-view="all" class="selected"><span>▤</span>全部任务</button><button data-view="setup"><span>▣</span>前期工作</button><button data-view="report"><span>≡</span>每日汇报</button></nav>
+</div>
+<dialog id="person-dialog" class="sheet compact"><div class="sheet-top"><div><p class="eyebrow">四人协作</p><h2>你是哪一位？</h2></div><button class="close" data-close="person-dialog" aria-label="关闭">×</button></div><p class="muted">只需选一次，之后直接看到自己的任务。</p><div class="person-grid" id="person-options"></div><p class="fine">姓名用于记录操作人，团队邀请链接请仅发给四位同事。</p></dialog>
+<dialog id="access-dialog" class="sheet compact"><div class="sheet-top"><div><p class="eyebrow">团队入口</p><h2>打开共用工作台</h2></div></div><p class="muted">请使用团队邀请链接打开，或输入团队访问码。</p><form id="access-form"><label>团队访问码<input id="access-code" type="password" autocomplete="off" required></label><p id="access-error" class="error"></p><button class="primary full" type="submit">进入工作台</button></form><p class="fine">这是四人共用的数据空间，姓名不作为独立账号密码。</p></dialog>
+<dialog id="task-dialog" class="sheet"><form id="task-form"><div class="sheet-top"><div><p id="task-project" class="eyebrow"></p><h2 id="task-title">填写进度</h2></div><button type="button" class="close" data-close="task-dialog" aria-label="关闭">×</button></div><div id="extra-fields" class="hidden"><label>归属项目<select id="edit-project"></select></label><label>新增事项<input id="edit-title" maxlength="150" placeholder="写清楚要完成什么"></label></div><div class="form-row"><label>负责人<select id="edit-owner"></select></label><label>状态<select id="edit-status"></select></label></div><label id="owner-default-label" class="checkbox"><input id="owner-default" type="checkbox" checked>以后每天默认由这位同事负责</label><label>今日要做<textarea id="edit-plan" rows="2" maxlength="2000" placeholder="动作 + 数量，例如：拍摄并发布 2 条视频"></textarea></label><label>实际结果 / 链接<textarea id="edit-result" rows="3" maxlength="4000" placeholder="完成了什么？可粘贴视频、笔记或商品链接"></textarea></label><label>卡点 / 下一步<textarea id="edit-next" rows="2" maxlength="2000" placeholder="需要谁协助，下一步做什么（选填）"></textarea></label><label id="completed-label" class="hidden">完成日期<input type="date" id="edit-completed"></label><div id="conflict" class="notice hidden"></div><p id="form-error" class="error" role="alert"></p><div class="savebar"><span id="draft-hint">未提交的草稿会保留在本机</span><button id="save-task" class="primary" type="submit">保存并同步</button></div></form></dialog>
+<dialog id="copy-dialog" class="sheet compact"><div class="sheet-top"><h2>复制日报</h2><button class="close" data-close="copy-dialog" aria-label="关闭">×</button></div><textarea id="copy-text" rows="14" aria-label="日报内容"></textarea><p class="fine">长按文字全选后复制，即可发到工作群。</p></dialog>
+<dialog id="assign-dialog" class="sheet compact"><form id="assign-form"><div class="sheet-top"><div><p class="eyebrow">分一次，后续沿用</p><h2>按项目分配负责人</h2></div><button type="button" class="close" data-close="assign-dialog" aria-label="关闭">×</button></div><p class="muted">同一项目可以一起分配。具体事项仍能单独调整。</p><div id="assign-fields"></div><label class="checkbox"><input id="only-unassigned" type="checkbox" checked>只分配当前没有负责人的事项</label><p id="assign-error" class="error"></p><button id="save-assign" class="primary full" type="submit">保存分工</button></form></dialog>
+<div id="toast" class="toast" role="status"></div>
+</body></html>
