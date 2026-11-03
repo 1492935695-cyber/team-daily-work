@@ -42,7 +42,7 @@ async function refresh({notify=false}={}){
     if(date!==state.date)return;
     state.payload=payload;setSync(true,'已同步 '+time(payload.serverTime));$('connection-note').classList.add('hidden');
     localStore.set('team-last-'+date,JSON.stringify(payload));render();
-    if($('access-dialog').open)closeDialog('access-dialog');if(!state.person)showDialog('person-dialog');if(notify)toast('已刷新共用进度');
+    if($('access-dialog').open)closeDialog('access-dialog');if(!state.person&&!state.personPrompted){state.personPrompted=true;showDialog('person-dialog');}if(notify)toast('已刷新共用进度');
   }catch(e){
     if(date!==state.date)return;setSync(false,'未连接');
     if(e.status===401){$('access-error').textContent=e.message;showDialog('access-dialog');}
