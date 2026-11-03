@@ -4,7 +4,8 @@ const STATUSES=['未安排','待开始','进行中','已完成','阻塞'];
 const PROJECTS=[{id:'1A',code:'1A',name:'抖店童装',priority:1,label:'首要重点'},{id:'1B',code:'1B',name:'抖店女鞋',priority:2,label:'第二重点'},{id:'2C-douyin',code:'2C',name:'抖音达人',priority:3,label:'第三重点',primary:true},{id:'2C-weixin',code:'2C',name:'视频号达人',priority:3,label:'第三重点'},{id:'2C-xhs',code:'2C',name:'小红书达人',priority:3,label:'第三重点'},{id:'2A',code:'2A',name:'小红书童装',priority:4,label:'第四重点'}];
 const localStore={get(k){try{return localStorage.getItem(k);}catch{return null;}},set(k,v){try{localStorage.setItem(k,v);}catch{}},remove(k){try{localStorage.removeItem(k);}catch{}}};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const state={date:today(),person:localStore.get('team-person')||'',view:'all',filter:'all',payload:null,online:false,loading:false,endpoint:location.hostname.endsWith('github.io')?'':location.origin,endpointAt:0,editing:null,busy:false,conflict:null,reportAll:true};
+const CLOUD_ENDPOINT='https://team-daily-work-sync.pages.dev';
+const state={date:today(),person:localStore.get('team-person')||'',view:'all',filter:'all',payload:null,online:false,loading:false,endpoint:location.hostname.endsWith('github.io')?CLOUD_ENDPOINT:location.origin,endpointAt:Date.now(),editing:null,busy:false,conflict:null,reportAll:true};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const project=id=>PROJECTS.find(p=>p.id===id)||PROJECTS[0];
 const active=t=>t.status!=='未安排';
@@ -22,9 +23,10 @@ async function discover(force=false){
   const raw='https://raw.githubusercontent.com/1492935695-cyber/team-daily-work/main/endpoint.json?t='+Date.now();
   for(const source of force?[raw,local]:[local,raw]){try{
     const r=await fetch(source,{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!r.ok)continue;const d=await r.json();
-    if(!/^https:\/\/[a-z0-9-]+\.(?:trycloudflare\.com|[a-z0-9-]+\.workers\.dev)$/.test(d.endpoint||''))continue;
+    if(!/^https:\/\/[a-z0-9-]+\.(?:trycloudflare\.com|[a-z0-9-]+\.workers\.dev|pages\.dev)$/.test(d.endpoint||''))continue;
     state.endpoint=d.endpoint;state.endpointAt=Date.now();return;
   }catch{}}
+  if(state.endpoint)return;
   throw new Error('同步服务地址尚未就绪');
 }
 async function api(route,{method='GET',body}={}){
